@@ -159,7 +159,7 @@ input[type=text]:focus,textarea:focus,select:focus{outline:2px solid var(--ink);
 }
 .aisle-title:first-child{margin-top:0;}
 .item-row-wrap{position:relative;overflow:hidden;}
-.item-row-delete-bg{position:absolute;inset:0;background:var(--danger);color:#fff;display:flex;align-items:center;padding-left:16px;font-size:13px;font-weight:600;}
+.item-row-delete-bg{position:absolute;inset:0;background:var(--danger);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;}
 .item-row{display:flex;align-items:flex-start;flex-wrap:wrap;gap:4px 8px;padding:7px 0;border-bottom:1px dashed var(--line);position:relative;background:var(--paper-raised);touch-action:pan-y;-webkit-user-select:none;user-select:none;}
 .item-row:last-child{border-bottom:none;}
 .item-row input[type=checkbox]{width:17px;height:17px;flex:none;margin-top:2px;}
@@ -169,6 +169,7 @@ input[type=text]:focus,textarea:focus,select:focus{outline:2px solid var(--ink);
 .item-row select{width:auto;font-size:11px;padding:4px 6px;flex:none;}
 .item-row .aisle-edit-btn{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:2px 4px;flex:none;}
 .item-row .move-btn{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:11px;text-decoration:underline;flex:none;white-space:nowrap;}
+.item-row .remove-item-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:2px 4px;flex:none;}
 .unsorted-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px dashed var(--line);}
 .unsorted-row .item-name{flex:1 1 140px;font-size:13.5px;}
 .empty-state{color:var(--ink-soft);font-size:13px;padding:10px 0;}
@@ -639,6 +640,7 @@ function renderWeekPanel(){
               '<button class="aisle-edit-btn" data-action="edit-item-aisle" data-key="'+esc(it.key)+'" title="Change aisle">\u270e</button>'
             )+
             '<button class="move-btn" data-action="move-store" data-name="'+esc(it.name)+'" data-store="'+otherStore+'" data-aisle="'+aisle+'">\u2192 '+(otherStore==='aldi'?'Aldi':'Woolworths')+'</button>'+
+            '<button class="remove-item-btn" data-action="remove-item" data-key="'+esc(it.key)+'" title="Remove from this week\u2019s list">\u2715</button>'+
           '</div>'+
         '</div>';
       });
@@ -885,6 +887,11 @@ document.addEventListener('click', e=>{
     updateDefault(el.dataset.name, el.dataset.store, el.dataset.aisle);
     render();
   }
+  else if(a==='remove-item'){
+    if(!state.week.removedItems) state.week.removedItems = {};
+    state.week.removedItems[el.dataset.key] = true;
+    saveWeek(); render();
+  }
   else if(a==='edit-item-aisle'){
     state.editingItemAisle = el.dataset.key; render();
   }
@@ -988,8 +995,10 @@ document.addEventListener('click', e=>{
 });
 
 // ---------- swipe-to-remove (This Week's built list only) ----------
-// Swipe right on an item removes it from THIS week's collated list only \u2014 the recipe/ingredient
-// itself is untouched, so it reappears normally if that recipe comes up again another week.
+// Swipe LEFT on an item removes it from THIS week's collated list only (matches the standard
+// iOS Mail/Messages convention) \u2014 the recipe/ingredient itself is untouched, so it reappears
+// normally if that recipe comes up again. A plain \u2715 button on each row does the same thing,
+// as a guaranteed-reliable fallback regardless of how the gesture behaves on a given device.
 let swipeState = null;
 const SWIPE_THRESHOLD = 64;
 
@@ -1015,7 +1024,7 @@ document.addEventListener('pointermove', e=>{
   // Once we've committed to a horizontal drag, stop the browser taking the gesture over
   // (iOS Safari will otherwise contest it as a scroll/navigation attempt and the row won't move).
   if(e.cancelable) e.preventDefault();
-  swipeState.dx = Math.max(0, Math.min(dx, 100)); // right-swipe only, clamped
+  swipeState.dx = Math.max(-100, Math.min(dx, 0)); // left-swipe only, clamped
   swipeState.row.style.transform = 'translateX('+swipeState.dx+'px)';
 }, {passive:false});
 
@@ -1023,9 +1032,9 @@ function endSwipe(e){
   if(!swipeState || (e && e.pointerId !== swipeState.pointerId)) return;
   const { row, key, dx, dragging } = swipeState;
   if(dragging){
-    if(dx > SWIPE_THRESHOLD){
+    if(dx < -SWIPE_THRESHOLD){
       row.style.transition = 'transform 0.18s ease, opacity 0.18s ease';
-      row.style.transform = 'translateX(100%)';
+      row.style.transform = 'translateX(-100%)';
       row.style.opacity = '0';
       setTimeout(()=>{
         if(!state.week.removedItems) state.week.removedItems = {};
