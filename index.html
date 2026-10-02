@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grocery Run</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --paper:#F5F6F0;
+  --paper-raised:#FFFFFF;
+  --ink:#20281F;
+  --ink-soft:#5D6659;
+  --line:#DAD6C6;
+  --aldi:#1B4CA6;
+  --aldi-soft:#E7EDF9;
+  --wool:#177A34;
+  --wool-soft:#E6F3E9;
+  --staple:#8A6A34;
+  --staple-soft:#F1E9D8;
+  --danger:#A6432B;
+  --danger-soft:#F5E6E1;
+  --radius:10px;
+  --font-display:'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#1B1F19;
+    --paper-raised:#242923;
+    --ink:#E8E7DD;
+    --ink-soft:#A5AA9C;
+    --line:#3A3F34;
+    --aldi:#7FA3E8;
+    --aldi-soft:#243050;
+    --wool:#6FCB8C;
+    --wool-soft:#1E3624;
+    --staple:#D3B171;
+    --staple-soft:#3A311F;
+    --danger:#E28468;
+    --danger-soft:#432720;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1B1F19;
+  --paper-raised:#242923;
+  --ink:#E8E7DD;
+  --ink-soft:#A5AA9C;
+  --line:#3A3F34;
+  --aldi:#7FA3E8;
+  --aldi-soft:#243050;
+  --wool:#6FCB8C;
+  --wool-soft:#1E3624;
+  --staple:#D3B171;
+  --staple-soft:#3A311F;
+  --danger:#E28468;
+  --danger-soft:#432720;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:14.5px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 80px;}
+.topbar h1{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:28px;
+  margin:0 0 2px;
+  letter-spacing:-0.01em;
+}
+.topbar p{margin:0 0 18px;color:var(--ink-soft);font-size:13px;max-width:52ch;}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;}
+.tab{
+  appearance:none;border:none;background:none;font-family:var(--font-body);
+  font-size:13px;color:var(--ink-soft);padding:9px 4px;margin-right:18px;
+  cursor:pointer;border-bottom:2px solid transparent;transform:translateY(1px);
+}
+.tab.active{color:var(--ink);border-bottom-color:var(--ink);font-weight:600;}
+.tab:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+.card{
+  background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px;margin-bottom:14px;
+}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:6px;}
+textarea,input[type=text],select{
+  width:100%;font-family:var(--font-body);font-size:13.5px;color:var(--ink);
+  background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:9px 10px;
+}
+textarea{min-height:84px;resize:vertical;}
+input[type=text]:focus,textarea:focus,select:focus{outline:2px solid var(--ink);outline-offset:1px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.row > *{flex:1 1 auto;min-width:70px;}
+.btn{
+  appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--paper);
+  font-family:var(--font-body);font-size:13px;font-weight:600;padding:9px 14px;
+  border-radius:8px;cursor:pointer;white-space:nowrap;
+}
+.btn:hover{opacity:0.88;}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500;}
+.btn.small{padding:5px 10px;font-size:12px;}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff;}
+.btn.aldi{background:var(--aldi);border-color:var(--aldi);}
+.btn.wool{background:var(--wool);border-color:var(--wool);}
+.checklist{display:flex;flex-direction:column;gap:6px;}
+.checklist label{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;}
+.muted{color:var(--ink-soft);font-size:12.5px;}
+.badge{
+  display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:100px;
+  border:1px solid var(--line);color:var(--ink-soft);margin-left:6px;
+}
+.badge.gf{color:var(--wool);border-color:var(--wool);}
+.warning-box{
+  background:var(--danger-soft);border:1px solid var(--danger);color:var(--ink);
+  border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;
+}
+.warning-box ul{margin:6px 0 0;padding-left:18px;}
+.recipe-row{border-bottom:1px solid var(--line);padding:12px 0;}
+.recipe-row:last-child{border-bottom:none;}
+.recipe-head{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;}
+.recipe-name{font-family:var(--font-display);font-size:16px;font-weight:600;}
+.recipe-meta{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+.ing-list{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+.ing-row{display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap;}
+.ing-name{flex:1 1 auto;min-width:120px;}
+.ing-controls{display:flex;gap:6px;}
+.ing-controls button{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px;}
+.ing-controls button:hover{color:var(--ink);}
+.def-selects{display:flex;gap:4px;}
+.def-selects select{width:auto;font-size:11.5px;padding:4px 6px;}
+.add-ing-form{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+.add-ing-form input{width:auto;flex:1 1 70px;}
+.paste-box{margin-top:10px;}
+.store-tabs{display:flex;gap:8px;margin-bottom:14px;}
+.store-tab{
+  flex:1;text-align:center;padding:10px;border-radius:8px;border:1px solid var(--line);
+  cursor:pointer;font-weight:600;font-size:13.5px;background:var(--paper-raised);
+}
+.store-tab.aldi.active{background:var(--aldi-soft);border-color:var(--aldi);color:var(--aldi);}
+.store-tab.wool.active{background:var(--wool-soft);border-color:var(--wool);color:var(--wool);}
+.aisle-title{
+  font-family:var(--font-display);font-size:13px;font-weight:600;text-transform:uppercase;
+  letter-spacing:0.04em;color:var(--ink-soft);margin:16px 0 6px;
+}
+.aisle-title:first-child{margin-top:0;}
+.item-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);}
+.item-row:last-child{border-bottom:none;}
+.item-row input[type=checkbox]{width:17px;height:17px;flex:none;}
+.item-row .item-name{flex:1 1 auto;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.item-row.checked .item-name{text-decoration:line-through;color:var(--ink-soft);}
+.item-row .item-qty{color:var(--ink-soft);font-size:12px;flex:none;}
+.item-row select{width:auto;font-size:11px;padding:4px 6px;flex:none;}
+.item-row .aisle-edit-btn{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:2px 4px;flex:none;}
+.item-row .move-btn{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:11px;text-decoration:underline;flex:none;white-space:nowrap;}
+.unsorted-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px dashed var(--line);}
+.unsorted-row .item-name{flex:1 1 140px;font-size:13.5px;}
+.empty-state{color:var(--ink-soft);font-size:13px;padding:10px 0;}
+.week-meta-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.staple-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);}
+.staple-row:last-child{border-bottom:none;}
+.staple-name{flex:1 1 auto;font-size:13.5px;}
+.progress-note{font-size:12px;color:var(--ink-soft);margin-bottom:12px;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="empty-state">Loading…</div></div>
+<script>
+const AISLES = ['Produce','Meat & Seafood','Dairy & Eggs','Bakery','Frozen','Pantry','Household','Other'];
+
+const SEED_RECIPES = [
+  ['shepherds-pie','Shepherd\u2019s Pie','Healthy Mummy','GF-ADJ \u2014 GF Vegemite + GF Worcestershire sauce'],
+  ['low-carb-lasagna','Low Carb Lasagna','Healthy Mummy','GF'],
+  ['low-carb-chilli-con-carne','Low Carb Chilli Con Carne','Healthy Mummy','GF'],
+  ['gf-chicken-lasagna','GF Chicken Lasagna','Healthy Mummy','GF'],
+  ['one-pot-spaghetti','One Pot Spaghetti','Healthy Mummy','GF-SIDE \u2014 cook GF pasta separately'],
+  ['easy-fried-rice','Easy Fried Rice','Healthy Mummy','GF-ADJ \u2014 GF soy sauce'],
+  ['cheeseburger-rice','Cheeseburger Rice','Mealboard','GF-ADJ'],
+  ['spanish-rice-chorizo','Spanish Rice with Chorizo','Healthy Mummy','GF-ADJ'],
+  ['slow-cooked-beef-mushroom-onion','Slow Cooked Beef with Mushrooms and Onion','Healthy Mummy','GF'],
+  ['slow-cooked-honey-mustard-chicken','Slow Cooked Honey Mustard Chicken','Healthy Mummy','GF-ADJ'],
+  ['slow-cooker-asian-chicken','Slow Cooker Asian Chicken','Healthy Mummy','GF-ADJ'],
+  ['slow-cooker-honey-garlic-chicken','Slow Cooker Honey Garlic Chicken','Mealboard','GF-ADJ'],
+  ['slow-cooker-mango-chicken','Slow Cooker Mango Chicken','Mealboard','GF'],
+  ['slow-cooker-beef-ragu-fettuccine','Slow Cooker Beef Ragu with Fettuccine','Mealboard','GF-SIDE \u2014 cook GF pasta separately'],
+  ['slow-cooker-panang-curry-chicken','Slow Cooker Panang Curry Chicken','Mealboard','GF-ADJ'],
+  ['slow-cooker-lemon-garlic-chicken','Slow Cooker Lemon Garlic Chicken','Mealboard','GF'],
+  ['pulled-pork','Pulled Pork','Mealboard','GF'],
+  ['hawaiian-chicken','Hawaiian Chicken','Mealboard','GF-ADJ'],
+  ['steak-sausages-veges','Steak, Sausages and Veges','','GF'],
+  ['chicken-skewers-salad','Chicken Skewers and Salad','','GF \u2014 check marinade'],
+  ['lamb-souvlaki-salad','Lamb Souvlaki and Salad','','GF-SIDE \u2014 GF pita/wrap'],
+  ['gf-beef-broccoli-stir-fry','GF Beef & Broccoli Stir Fry','Mealboard','GF'],
+  ['banging-beef-noodles','Banging Beef Noodles','Mealboard','GF'],
+  ['beef-stroganoff','Beef Stroganoff','Recipe Community','GF'],
+  ['chicken-chasseur','Chicken Chasseur','Cookidoo','GF'],
+  ['chicken-satay-curry','Chicken Satay Curry','Mealboard','GF-ADJ'],
+  ['chicken-teriyaki','Chicken Teriyaki','Cookidoo','GF-ADJ'],
+  ['creamy-coconut-chicken-curry','Creamy Coconut Chicken Curry','Cookidoo','GF-ADJ'],
+  ['curried-sausages','Curried Sausages','Mealboard','GF-ADJ'],
+  ['lemon-feta-chicken-panfried-beans','Lemon and Feta Chicken with Panfried Beans','Marley Spoon','GF'],
+  ['mongolian-lamb-hot-pot','Mongolian Lamb Hot Pot','Cookidoo','GF-ADJ'],
+  ['salmon-fillets-rice-veges','Salmon Fillets, Rice and Veges','','GF'],
+  ['mexican-fiesta','Mexican Fiesta','Mealboard','GF-ADJ']
+];
+
+const SEED_STAPLES = ['Milk','Bread','Eggs','Butter','Cheese','Yoghurt','Toilet paper','Paper towel',
+  'Dishwashing liquid','Laundry powder','Coffee','Tea bags','Sugar','Olive oil','Rice','Pasta','Cereal','Bin bags'];
+
+const SUGGESTED_STAPLES = ['Milk','Bread','Eggs','Butter','Cheese','Yoghurt','Margarine',
+  'Toilet paper','Paper towel','Tissues','Dishwashing liquid','Dishwasher tablets','Laundry powder',
+  'Bin bags','Cling wrap','Aluminium foil','Coffee','Tea bags','Sugar','Honey','Olive oil','Vegetable oil',
+  'Vinegar','Flour','Rice','Pasta','Cereal','Oats','Chicken stock','Vegetable stock','Tinned tomatoes',
+  'Tinned beans','Salt','Pepper','Soy sauce','Tomato sauce','Mustard'];
+
+function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');}
+function normalizeName(s){return (s||'').trim().toLowerCase().replace(/\s+/g,' ');}
+function defaultsKey(s){return normalizeName((s||'').split(',')[0]);} // ignore prep instructions after a comma when remembering store/aisle
+function displayName(s){return (s||'').split(',')[0].trim();} // same idea, but preserves original casing for what's shown on the list
+function uid(){return Math.random().toString(36).slice(2,10);}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function clone(x){ return x==null ? x : JSON.parse(JSON.stringify(x)); } // db reads are delivered frozen; always clone before mutating
+
+function guessAisle(name){
+  const n = name.toLowerCase();
+  if(/milk|cheese|yog|butter|cream|egg/.test(n)) return 'Dairy & Eggs';
+  if(/chicken|beef|pork|lamb|mince|sausage|bacon|fish|salmon|prawn|meat/.test(n)) return 'Meat & Seafood';
+  if(/bread|bun|roll|bagel|tortilla|wrap|pita/.test(n)) return 'Bakery';
+  if(/frozen|ice cream/.test(n)) return 'Frozen';
+  if(/onion|carrot|potato|tomato|lettuce|capsicum|garlic|broccoli|apple|banana|lemon|lime|herb|coriander|parsley|spinach|zucchini|mushroom|avocado|cucumber/.test(n)) return 'Produce';
+  if(/toilet|paper towel|detergent|dishwash|laundry|foil|cling wrap|bin bag|tissue/.test(n)) return 'Household';
+  return 'Pantry';
+}
+
+function parseIngredientLine(raw){
+  let line = (raw||'').trim();
+  line = line.replace(/^[-*\u2022]\s*/, '');
+  if(!line) return null;
+  const m = line.match(/^(\d+(?:[\/.]\d+)?(?:\s*-\s*\d+)?)\s*(g|kg|ml|l|litre|litres|tsp|teaspoon|teaspoons|tbsp|tablespoon|tablespoons|cup|cups|oz|lb|lbs|clove|cloves|can|cans|pinch|pinches|slice|slices|bunch|bunches|packet|packets|pkt)?\s+(.*)$/i);
+  if(m){ return {qty:m[1], unit:(m[2]||'').toLowerCase(), name:m[3].trim()}; }
+  return {qty:'', unit:'', name:line};
+}
+
+// ---------- Firebase config & auth ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyCTup6gnCFqvftTwjL7U1NE1Mji1RJg3Fk",
+  authDomain: "grocery-run-ea792.firebaseapp.com",
+  projectId: "grocery-run-ea792",
+  storageBucket: "grocery-run-ea792.firebasestorage.app",
+  messagingSenderId: "230673117815",
+  appId: "1:230673117815:web:e047a8e82f4ceec92f0c72"
+};
+// If Firebase's script couldn't load (e.g. a sandboxed preview that blocks external scripts,
+// or no internet), fall back to a local, no-sign-in preview with sample data \u2014 purely so the
+// app can still be opened and its design reviewed/edited without real hosting. Once Firebase is
+// actually reachable (real hosting), this takes the real sign-in + Firestore path automatically.
+const firebaseAvailable = typeof firebase !== 'undefined';
+let auth, firestore;
+if(firebaseAvailable){
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  firestore = firebase.firestore();
+}
+
+// Thin adapter so the rest of the app can keep using db.doc()/db.collection() exactly as
+// it did against Claude's storage \u2014 only this adapter changes underneath it.
+function makeFirestoreDb(){
+  function mkDoc(path){
+    const ref = firestore.doc(path);
+    return {
+      async get(){ const snap = await ref.get(); return { id: snap.id, exists: snap.exists, data: () => snap.data() }; },
+      async set(data){ await ref.set(data); },
+      async update(data){ await ref.update(data); },
+      async delete(){ await ref.delete(); },
+      collection(sub){ return mkCollection(path+'/'+sub); }
+    };
+  }
+  function mkCollection(path){
+    const ref = firestore.collection(path);
+    return {
+      doc(id){ return mkDoc(path+'/'+(id||ref.doc().id)); },
+      async get(){
+        const snap = await ref.get();
+        return { docs: snap.docs.map(d=>({ id:d.id, exists:true, data:()=>d.data() })) };
+      }
+    };
+  }
+  return { doc:(p)=>mkDoc(p), collection:(p)=>mkCollection(p) };
+}
+
+// In-memory stand-in for makeFirestoreDb(), used only in local preview mode (no Firebase reachable).
+function makeLocalDb(){
+  const store = {};
+  function mkDoc(path){
+    return {
+      async get(){ const data = store[path]; return { id: path.split('/').pop(), exists: data !== undefined, data: () => data }; },
+      async set(data){ store[path] = data; },
+      async update(data){ store[path] = {...(store[path]||{}), ...data}; },
+      async delete(){ delete store[path]; },
+      collection(sub){ return mkCollection(path+'/'+sub); }
+    };
+  }
+  function mkCollection(path){
+    return {
+      doc(id){ return mkDoc(path+'/'+(id||Math.random().toString(36).slice(2))); },
+      async get(){
+        const prefix = path+'/';
+        const docs = Object.keys(store).filter(k=>k.startsWith(prefix) && k.slice(prefix.length).indexOf('/')===-1)
+          .map(k=>({ id: k.slice(prefix.length), exists:true, data:()=>store[k] }));
+        return { docs };
+      }
+    };
+  }
+  return { doc:(p)=>mkDoc(p), collection:(p)=>mkCollection(p) };
+}
+
+function renderSignIn(){
+  document.getElementById('app').innerHTML =
+    '<div class="topbar"><h1>\uD83E\uDDFA Grocery Run</h1>'+
+    '<p>Sign in to see your family\u2019s shopping lists.</p></div>'+
+    '<div class="card" style="text-align:center;padding:32px 16px;">'+
+      '<button class="btn" id="google-signin-btn">Sign in with Google</button>'+
+    '</div>';
+  document.getElementById('google-signin-btn').addEventListener('click', ()=>{
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(()=>{
+      document.getElementById('app').innerHTML += '<div class="warning-box">Sign-in didn\u2019t go through \u2014 try again.</div>';
+    });
+  });
+}
+
+function renderUnauthorized(email){
+  document.getElementById('app').innerHTML =
+    '<div class="topbar"><h1>\uD83E\uDDFA Grocery Run</h1></div>'+
+    '<div class="warning-box">'+esc(email)+' isn\u2019t authorised for this family\u2019s list. Signed into the wrong account?'+
+    '</div>'+
+    '<button class="btn ghost" id="signout-btn">Sign out</button>';
+  document.getElementById('signout-btn').addEventListener('click', ()=> auth.signOut());
+}
+
+// ---------- state ----------
+let db = null;
+let state = {
+  loaded:false, error:null,
+  recipes:{}, staples:[], defaults:{}, week:null,
+  tab:'week', storeTab:'aldi', recipesView:'list', editingItemAisle:null,
+  weekForm:{picksRaw:'', alexaRaw:'', staplesSelected:{}, recipeStaplesChecked:{}, step:1},
+  expandedRecipe:null, editingIngredient:null
+};
+
+async function init(){
+  if(firebaseAvailable) db = makeFirestoreDb();
+  try{
+    const seeded = await db.doc('meta/seeded').get();
+    if(!seeded.exists){
+      for(const [id,name,source,gfNote] of SEED_RECIPES){
+        await db.collection('recipes').doc(id).set({id,name,source,gfNote,ingredients:[]});
+      }
+      await db.doc('staples/master').set({items: SEED_STAPLES.map(name=>({id:slug(name),name}))});
+      await db.doc('defaults/items').set({map:{}});
+      await db.doc('meta/seeded').set({at: Date.now()});
+    }
+    const recipesSnap = await db.collection('recipes').get();
+    recipesSnap.docs.forEach(d=>{ state.recipes[d.id] = clone(d.data()); });
+    const staplesSnap = await db.doc('staples/master').get();
+    state.staples = staplesSnap.exists ? clone(staplesSnap.data().items||[]) : [];
+    const defSnap = await db.doc('defaults/items').get();
+    state.defaults = defSnap.exists ? clone(defSnap.data().map||{}) : {};
+    const weekSnap = await db.doc('week/current').get();
+    state.week = weekSnap.exists ? clone(weekSnap.data()) : null;
+    // Pick up any in-progress draft from another device/session before falling back to an automation suggestion.
+    if(!state.week || !state.week.builtAt){
+      const draftSnap = await db.doc('week/draft').get();
+      if(draftSnap.exists){
+        state.weekForm = {...state.weekForm, ...clone(draftSnap.data())};
+      }
+    }
+    // If the Friday automation has dropped this week's picks off and we still have nothing of our own, pre-fill step 1.
+    if((!state.week || !state.week.builtAt) && !state.weekForm.picksRaw){
+      const pendingSnap = await db.doc('automation/pendingPicks').get();
+      if(pendingSnap.exists && pendingSnap.data().picksRaw){
+        state.weekForm.picksRaw = pendingSnap.data().picksRaw;
+        state.weekForm.fromAutomation = true;
+      }
+    }
+    state.loaded = true;
+  }catch(e){
+    state.loaded = true;
+    if(e && e.code === 'permission-denied'){ renderUnauthorized(auth.currentUser ? auth.currentUser.email : ''); return; }
+    state.error = 'load-failed';
+  }
+  render();
+}
+
+function saveRecipe(id){ if(db) db.collection('recipes').doc(id).set(state.recipes[id]).catch(()=>{}); }
+function saveStaples(){ if(db) db.doc('staples/master').set({items:state.staples}).catch(()=>{}); }
+function saveDefaults(){ if(db) db.doc('defaults/items').set({map:state.defaults}).catch(()=>{}); }
+function saveWeek(){ if(db) db.doc('week/current').set(state.week).catch(()=>{}); }
+function deleteWeekDraft(){ if(db) db.doc('week/draft').delete().catch(()=>{}); }
+let draftSaveTimer = null;
+function saveWeekDraftDebounced(){
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(()=>{ if(db) db.doc('week/draft').set(state.weekForm).catch(()=>{}); }, 800);
+}
+function saveWeekDraftNow(){
+  clearTimeout(draftSaveTimer);
+  if(db) db.doc('week/draft').set(state.weekForm).catch(()=>{});
+}
+function deleteWeek(){ if(db) db.doc('week/current').delete().catch(()=>{}); }
+
+function updateDefault(name, store, aisle){
+  const key = defaultsKey(name);
+  if(!key) return;
+  const existing = state.defaults[key] || {};
+  state.defaults[key] = {store: store||existing.store||'', aisle: aisle||existing.aisle||guessAisle(name)};
+  saveDefaults();
+}
+
+// ---------- computing this week's lists ----------
+function parsePicks(raw){
+  const lines = (raw||'').split('\n').map(l=>l.trim()).filter(Boolean);
+  return lines.map(line=>{
+    let day='', name=line;
+    const m = line.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
+    if(m){ day=m[1]; name=m[2].trim(); }
+    const norm = name.toLowerCase();
+    const all = Object.values(state.recipes);
+    let match = all.find(r=>r.name.toLowerCase()===norm);
+    if(!match) match = all.find(r=>r.name.toLowerCase().includes(norm) || norm.includes(r.name.toLowerCase()));
+    return {day, name, recipe: match||null};
+  });
+}
+
+function deriveRecipeStaples(picks){
+  const pool = new Map();
+  const warnings = [];
+  picks.forEach(p=>{
+    if(!p.name) return;
+    if(!p.recipe){ warnings.push('No recipe match for \u201c'+esc(p.name)+'\u201d'+(p.day?(' ('+esc(p.day)+')'):'')+' \u2014 check spelling, or add it in Recipes.'); return; }
+    if(!p.recipe.ingredients || p.recipe.ingredients.length===0){ warnings.push('\u201c'+esc(p.recipe.name)+'\u201d has no ingredients logged yet \u2014 add them in Recipes.'); return; }
+    p.recipe.ingredients.forEach(ing=>{
+      if(ing.isStaple){
+        const key = normalizeName(ing.name);
+        if(!pool.has(key)) pool.set(key, {key, name:ing.name, qty:ing.qty, unit:ing.unit});
+      }
+    });
+  });
+  return {pool:[...pool.values()], warnings};
+}
+
+function computeWeekLists(){
+  const week = state.week;
+  const picks = parsePicks(week.picksRaw);
+  const alexaParsed = (week.alexaRaw||'').split('\n').map(parseIngredientLine).filter(x=>x&&x.name);
+  const staplesSelected = state.staples.filter(s=> week.staplesSelected && week.staplesSelected[s.id]);
+  const manual = week.manualItems || [];
+
+  const {warnings} = deriveRecipeStaples(picks);
+  const recipeStaplesChecked = week.recipeStaplesChecked || {};
+  const raw = [];
+  picks.forEach(p=>{
+    if(!p.name || !p.recipe || !p.recipe.ingredients || !p.recipe.ingredients.length) return;
+    p.recipe.ingredients.forEach(ing=>{
+      if(ing.isStaple){
+        const key = normalizeName(ing.name);
+        if(recipeStaplesChecked[key]) raw.push({name:ing.name, qty:ing.qty, unit:ing.unit, source:'recipe'});
+      } else {
+        raw.push({name:ing.name, qty:ing.qty, unit:ing.unit, source:'recipe'});
+      }
+    });
+  });
+  alexaParsed.forEach(a=> raw.push({name:a.name, qty:a.qty, unit:a.unit, source:'alexa'}));
+  staplesSelected.forEach(s=> raw.push({name:s.name, qty:'', unit:'', source:'staple'}));
+  manual.forEach(m=> raw.push({name:m.name, qty:m.qty, unit:m.unit, source:'manual'}));
+
+  let defaultsChanged = false;
+  const sortedRaw = [];
+  raw.forEach(it=>{
+    const key = normalizeName(it.name);
+    if(!key) return;
+    const dKey = defaultsKey(it.name);
+    let d = state.defaults[dKey];
+    if(!d || !d.store){
+      // No default yet \u2014 silently assume Aldi with a guessed aisle. Editing is by exception (move to Woolworths, or fix the aisle) rather than a blocking prompt.
+      d = {store:'aldi', aisle: (d&&d.aisle) || guessAisle(it.name)};
+      state.defaults[dKey] = d;
+      defaultsChanged = true;
+    }
+    sortedRaw.push({...it, store:d.store, aisle: d.aisle || guessAisle(it.name)});
+  });
+  if(defaultsChanged) saveDefaults();
+
+  const combined = new Map();
+  sortedRaw.forEach(it=>{
+    const key = it.store+'|'+defaultsKey(it.name)+'|'+(it.unit||'');
+    if(!combined.has(key)) combined.set(key, {key, name:displayName(it.name), unit:it.unit, store:it.store, aisle:it.aisle, qtyNums:[], qtyTexts:[]});
+    const b = combined.get(key);
+    if(it.qty){
+      const n = parseFloat(String(it.qty).replace(',', '.'));
+      if(!isNaN(n) && /^[\d.\s]+$/.test(String(it.qty).trim())) b.qtyNums.push(n);
+      else b.qtyTexts.push(String(it.qty));
+    }
+  });
+
+  const lists = {aldi:{}, woolworths:{}};
+  AISLES.forEach(a=>{ lists.aldi[a]=[]; lists.woolworths[a]=[]; });
+  combined.forEach(b=>{
+    const parts = [];
+    if(b.qtyNums.length){ const sum = b.qtyNums.reduce((a,c)=>a+c,0); parts.push(sum + (b.unit?(' '+b.unit):'')); }
+    if(b.qtyTexts.length) parts.push(b.qtyTexts.join(' + ') + (b.unit && !b.qtyNums.length ? (' '+b.unit) : ''));
+    const qtyDisplay = parts.join(' + ');
+    const store = lists[b.store] ? b.store : 'aldi';
+    const aisle = AISLES.includes(b.aisle) ? b.aisle : 'Other';
+    lists[store][aisle].push({key:b.key, name:b.name, qty:qtyDisplay, checked: !!(week.shoppingChecked && week.shoppingChecked[b.key])});
+  });
+  Object.values(lists.aldi).forEach(arr=>arr.sort((a,c)=>a.name.localeCompare(c.name)));
+  Object.values(lists.woolworths).forEach(arr=>arr.sort((a,c)=>a.name.localeCompare(c.name)));
+
+  return {lists, warnings};
+}
+
+// ---------- rendering ----------
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML =
+    '<div class="topbar"><h1>\uD83E\uDDFA Grocery Run</h1>'+
+    '<p>This week\u2019s dinners, your Alexa list, and a staples check \u2014 sorted into Aldi and Woolworths lists.</p></div>'+
+    renderTabs()+
+    '<div id="panel">'+renderPanel()+'</div>';
+}
+
+function renderTabs(){
+  const tabs = [['week','This Week'],['recipes','Recipes'],['staples','Staples']];
+  return '<div class="tabs">'+tabs.map(([id,label])=>
+    '<button class="tab'+(state.tab===id?' active':'')+'" data-action="tab" data-id="'+id+'">'+label+'</button>'
+  ).join('')+'</div>';
+}
+
+function renderPanel(){
+  if(state.error==='load-failed') return '<div class="warning-box">Couldn\u2019t load your saved data just now. Try reopening this page.</div>';
+  if(state.tab==='week') return renderWeekPanel();
+  if(state.tab==='recipes') return state.recipesView==='reconcile' ? renderReconcilePanel() : renderRecipesPanel();
+  if(state.tab==='staples') return renderStaplesPanel();
+  return '';
+}
+
+// ----- This Week -----
+function renderWeekWizard(wf){
+  const stepLabels = ['Dinners','Pantry check','Alexa list','Staples'];
+  let html = '<div class="progress-note">Step '+wf.step+' of 4 \u2014 '+stepLabels[wf.step-1]+'</div>';
+
+  if(wf.step===1){
+    html += (wf.fromAutomation ? '<div class="warning-box" style="background:var(--wool-soft);border-color:var(--wool);">Pulled in automatically from this week\u2019s menu plan \u2014 check it looks right, then continue.</div>' : '')+
+      '<div class="card">'+
+      '<div class="field"><label>This week\u2019s dinners (paste Monday\u2013Thursday from your Friday menu plan)</label>'+
+      '<textarea data-field="picksRaw" placeholder="Mon: Slow Cooker Lemon Garlic Chicken\nTue: GF Beef & Broccoli Stir Fry\nWed: Pulled Pork\nThu: Mexican Fiesta">'+esc(wf.picksRaw)+'</textarea></div>'+
+      '</div>'+
+      '<button class="btn" data-action="wizard-next">Next: Check pantry needs \u2192</button>';
+    return html;
+  }
+
+  if(wf.step===2){
+    const picks = parsePicks(wf.picksRaw);
+    const {pool, warnings} = deriveRecipeStaples(picks);
+    if(warnings.length) html += '<div class="warning-box"><strong>Heads up</strong><ul>'+warnings.map(w=>'<li>'+w+'</li>').join('')+'</ul></div>';
+    html += '<div class="card"><label class="muted" style="display:block;margin-bottom:8px;">This week\u2019s recipes use these pantry staples \u2014 tick any you\u2019re actually low on</label>';
+    if(!pool.length){
+      html += '<div class="empty-state">No pantry staples flagged in this week\u2019s recipes.</div>';
+    } else {
+      pool.forEach(s=>{
+        html += '<div class="staple-row"><label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;">'+
+          '<input type="checkbox" data-action="wizard-recipe-staple" data-key="'+esc(s.key)+'" '+(wf.recipeStaplesChecked[s.key]?'checked':'')+'>'+
+          '<span class="staple-name">'+esc(s.name)+(s.qty?' <span class="item-qty">'+esc(s.qty+' '+(s.unit||''))+'</span>':'')+'</span>'+
+        '</label></div>';
+      });
+    }
+    html += '</div>'+
+      '<div class="row"><button class="btn ghost" data-action="wizard-back">\u2190 Back</button>'+
+      '<button class="btn" data-action="wizard-next">Next: Alexa list \u2192</button></div>';
+    return html;
+  }
+
+  if(wf.step===3){
+    html += '<div class="card">'+
+      '<div class="field"><label>Alexa shopping list (paste items, one per line)</label>'+
+      '<textarea data-field="alexaRaw" placeholder="Dog food\nBatteries\n2 avocados">'+esc(wf.alexaRaw)+'</textarea></div>'+
+      '</div>'+
+      '<div class="row"><button class="btn ghost" data-action="wizard-back">\u2190 Back</button>'+
+      '<button class="btn" data-action="wizard-next">Next: Staples check \u2192</button></div>';
+    return html;
+  }
+
+  // step 4
+  html += '<div class="card">'+
+    '<label class="muted" style="display:block;margin-bottom:8px;">Household staples \u2014 tick what\u2019s actually low</label>'+
+    (state.staples.length===0 ? '<div class="empty-state">No staples set up yet \u2014 add some in the Staples tab.</div>' :
+      '<div class="checklist">'+state.staples.map(s=>
+        '<label><input type="checkbox" data-action="staple-check" data-id="'+s.id+'" '+(wf.staplesSelected[s.id]?'checked':'')+'> '+esc(s.name)+'</label>'
+      ).join('')+'</div>')+
+  '</div>'+
+  '<div class="row"><button class="btn ghost" data-action="wizard-back">\u2190 Back</button>'+
+  '<button class="btn" data-action="build-week">Build the lists \u2192</button></div>';
+  return html;
+}
+
+function renderWeekPanel(){
+  const noDbNote = state.error==='no-db' ? '<div class="warning-box">This session can\u2019t save data \u2014 your recipes and lists will reset if you close this page.</div>' : '';
+  if(!state.week || !state.week.builtAt){
+    if(!state.weekForm.step) state.weekForm.step = 1;
+    if(!state.weekForm.recipeStaplesChecked) state.weekForm.recipeStaplesChecked = {};
+    return noDbNote + renderWeekWizard(state.weekForm);
+  }
+
+  const {lists, warnings} = computeWeekLists();
+  const store = state.storeTab;
+  const storeLists = lists[store];
+  const hasAny = Object.values(store==='aldi'?lists.aldi:lists.woolworths).some(a=>a.length);
+
+  let html = noDbNote;
+  html += '<div class="week-meta-bar"><span class="muted">Built '+new Date(state.week.builtAt).toLocaleDateString('en-AU',{day:'numeric',month:'short'})+'</span>'+
+    '<span><button class="btn ghost small" data-action="edit-week">Edit inputs</button> '+
+    '<button class="btn danger small" data-action="new-week">Start new week</button></span></div>';
+
+  if(warnings.length) html += '<div class="warning-box"><strong>Heads up</strong><ul>'+warnings.map(w=>'<li>'+w+'</li>').join('')+'</ul></div>';
+
+  html += '<div class="store-tabs">'+
+    '<div class="store-tab aldi'+(store==='aldi'?' active':'')+'" data-action="store-tab" data-id="aldi">Aldi</div>'+
+    '<div class="store-tab wool'+(store==='woolworths'?' active':'')+'" data-action="store-tab" data-id="woolworths">Woolworths</div>'+
+  '</div>';
+
+  html += '<div class="card">';
+  if(!hasAny){
+    html += '<div class="empty-state">Nothing sorted into '+(store==='aldi'?'Aldi':'Woolworths')+' yet.</div>';
+  } else {
+    AISLES.forEach(aisle=>{
+      const items = storeLists[aisle];
+      if(!items.length) return;
+      html += '<div class="aisle-title">'+aisle+'</div>';
+      items.forEach(it=>{
+        const otherStore = store==='aldi' ? 'woolworths' : 'aldi';
+        const editingThis = state.editingItemAisle === it.key;
+        html += '<div class="item-row'+(it.checked?' checked':'')+'">'+
+          '<input type="checkbox" data-action="toggle-check" data-key="'+esc(it.key)+'" '+(it.checked?'checked':'')+'>'+
+          '<span class="item-name">'+esc(it.name)+'</span>'+
+          (it.qty?'<span class="item-qty">'+esc(it.qty)+'</span>':'')+
+          (editingThis ?
+            '<select data-action="change-aisle" data-name="'+esc(it.name)+'" data-store="'+store+'">'+
+              AISLES.map(a=>'<option value="'+a+'"'+(a===aisle?' selected':'')+'>'+a+'</option>').join('')+
+            '</select>'
+          :
+            '<button class="aisle-edit-btn" data-action="edit-item-aisle" data-key="'+esc(it.key)+'" title="Change aisle">\u270e</button>'
+          )+
+          '<button class="move-btn" data-action="move-store" data-name="'+esc(it.name)+'" data-store="'+otherStore+'" data-aisle="'+aisle+'">\u2192 '+(otherStore==='aldi'?'Aldi':'Woolworths')+'</button>'+
+        '</div>';
+      });
+    });
+  }
+  html += '<div class="add-ing-form">'+
+    '<input type="text" id="manual-qty" placeholder="qty">'+
+    '<input type="text" id="manual-unit" placeholder="unit">'+
+    '<input type="text" id="manual-name" placeholder="item name" style="flex:2 1 140px;">'+
+    '<button class="btn ghost small" data-action="add-manual" data-store="'+store+'">+ Add item</button>'+
+  '</div>';
+  html += '</div>';
+
+  return html;
+}
+
+// ----- Recipes -----
+function computeIngredientClusters(){
+  const map = new Map(); // lastWord -> Map(defaultsKey -> {key, name, recipes:Set})
+  Object.values(state.recipes).forEach(r=>{
+    (r.ingredients||[]).forEach(ing=>{
+      const dKey = defaultsKey(ing.name);
+      if(!dKey) return;
+      const words = dKey.split(' ');
+      const lastWord = words[words.length-1];
+      if(!map.has(lastWord)) map.set(lastWord, new Map());
+      const variants = map.get(lastWord);
+      if(!variants.has(dKey)) variants.set(dKey, {key:dKey, name:dKey, recipes:new Set()});
+      variants.get(dKey).recipes.add(r.name);
+    });
+  });
+  const clusters = [];
+  map.forEach((variants, lastWord)=>{
+    if(variants.size>1) clusters.push({lastWord, variants:[...variants.values()].map(v=>({...v, recipes:[...v.recipes]}))});
+  });
+  clusters.sort((a,c)=>a.lastWord.localeCompare(c.lastWord));
+  return clusters;
+}
+
+function renderReconcilePanel(){
+  const clusters = computeIngredientClusters();
+  let html = '<div class="progress-note">Ingredients grouped by their last word \u2014 possible duplicates written differently across recipes. Nothing changes until you rename one. Renaming a variant updates it everywhere it\u2019s used.</div>';
+  html += '<button class="btn ghost small" style="margin-bottom:10px;" data-action="reconcile-close">\u2190 Back to recipes</button>';
+  if(!clusters.length){
+    html += '<div class="card"><div class="empty-state">No likely duplicates found across your recipes.</div></div>';
+    return html;
+  }
+  clusters.forEach((c, ci)=>{
+    html += '<div class="card"><div class="recipe-name" style="margin-bottom:8px;">\u201c'+esc(c.lastWord)+'\u201d</div>';
+    c.variants.forEach((v, vi)=>{
+      const inputId = 'reconcile-'+ci+'-'+vi;
+      html += '<div class="ing-row">'+
+        '<input type="text" id="'+inputId+'" value="'+esc(v.name)+'" class="ing-name">'+
+        '<span class="muted" style="font-size:11px;flex:1 1 160px;">used in: '+esc(v.recipes.join(', '))+'</span>'+
+        '<button class="btn ghost small" data-action="reconcile-rename" data-key="'+esc(v.key)+'" data-input="'+inputId+'">Rename everywhere \u2192</button>'+
+      '</div>';
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+function renderRecipesPanel(){
+  const all = Object.values(state.recipes).sort((a,c)=>a.name.localeCompare(c.name));
+  const withIng = all.filter(r=>r.ingredients && r.ingredients.length).length;
+  let html = '<div class="progress-note">'+withIng+' of '+all.length+' recipes have ingredients logged. Use MealBoard\u2019s Share/Print on a recipe, then paste the text below to add it fast.</div>';
+  html += '<button class="btn ghost small" style="margin-bottom:10px;" data-action="reconcile-open">Check for similar ingredients</button>';
+  html += '<div class="card">';
+  all.forEach(r=>{
+    const expanded = state.expandedRecipe === r.id;
+    html += '<div class="recipe-row">'+
+      '<div class="recipe-head" data-action="toggle-recipe" data-id="'+r.id+'">'+
+        '<div><div class="recipe-name">'+esc(r.name)+'</div>'+
+        '<div class="recipe-meta">'+esc(r.source||'')+(r.gfNote?' \u00b7 '+esc(r.gfNote):'')+
+        (r.ingredients&&r.ingredients.length ? ' \u00b7 '+r.ingredients.length+' ingredients' : ' \u00b7 no ingredients yet')+'</div></div>'+
+        '<span class="muted">'+(expanded?'\u2212':'+')+'</span>'+
+      '</div>';
+    if(expanded){
+      html += '<div class="ing-list">';
+      if(!r.ingredients || !r.ingredients.length){
+        html += '<div class="empty-state">No ingredients yet.</div>';
+      } else {
+        r.ingredients.forEach(ing=>{
+          if(state.editingIngredient && state.editingIngredient.recipeId===r.id && state.editingIngredient.ingId===ing.id){
+            html += '<div class="ing-row">'+
+              '<input type="text" id="edit-qty" value="'+esc(ing.qty)+'" placeholder="qty" style="width:60px;flex:none;">'+
+              '<input type="text" id="edit-unit" value="'+esc(ing.unit)+'" placeholder="unit" style="width:70px;flex:none;">'+
+              '<input type="text" id="edit-name" value="'+esc(ing.name)+'" class="ing-name">'+
+              '<label class="muted" style="display:flex;align-items:center;gap:4px;flex:none;"><input type="checkbox" id="edit-staple" '+(ing.isStaple?'checked':'')+'> pantry staple</label>'+
+              '<button class="btn small" data-action="save-ingredient" data-recipe="'+r.id+'" data-ing="'+ing.id+'">Save</button>'+
+              '<button class="btn ghost small" data-action="cancel-edit-ingredient">Cancel</button>'+
+            '</div>';
+          } else {
+            const def = state.defaults[defaultsKey(ing.name)] || {};
+            const defAisle = def.aisle || guessAisle(ing.name);
+            html += '<div class="ing-row">'+
+              '<span class="ing-name">'+(ing.qty?esc(ing.qty)+' ':'')+(ing.unit?esc(ing.unit)+' ':'')+esc(ing.name)+(ing.isStaple?' <span class="badge">pantry \u2014 buy when low</span>':'')+'</span>'+
+              '<label class="muted" style="display:flex;align-items:center;gap:4px;flex:none;white-space:nowrap;cursor:pointer;"><input type="checkbox" data-action="toggle-ingredient-staple" data-recipe="'+r.id+'" data-ing="'+ing.id+'" '+(ing.isStaple?'checked':'')+'> pantry staple</label>'+
+              '<div class="def-selects">'+
+                '<select data-action="set-default-store" data-name="'+esc(ing.name)+'"><option value="aldi"'+(def.store!=='woolworths'?' selected':'')+'>Aldi</option><option value="woolworths"'+(def.store==='woolworths'?' selected':'')+'>Woolworths</option></select>'+
+                '<select data-action="set-default-aisle" data-name="'+esc(ing.name)+'">'+AISLES.map(a=>'<option value="'+a+'"'+(defAisle===a?' selected':'')+'>'+a+'</option>').join('')+'</select>'+
+              '</div>'+
+              '<div class="ing-controls">'+
+                '<button data-action="edit-ingredient" data-recipe="'+r.id+'" data-ing="'+ing.id+'" title="Edit">\u270e</button>'+
+                '<button data-action="remove-ingredient" data-recipe="'+r.id+'" data-ing="'+ing.id+'" title="Remove">\u2715</button>'+
+              '</div>'+
+            '</div>';
+          }
+        });
+      }
+      html += '</div>';
+      html += '<div class="add-ing-form">'+
+        '<input type="text" id="new-ing-qty" placeholder="qty">'+
+        '<input type="text" id="new-ing-unit" placeholder="unit">'+
+        '<input type="text" id="new-ing-name" placeholder="ingredient name" style="flex:2 1 140px;">'+
+        '<label class="muted" style="display:flex;align-items:center;gap:4px;flex:none;"><input type="checkbox" id="new-ing-staple"> pantry staple</label>'+
+        '<button class="btn ghost small" data-action="add-ingredient" data-recipe="'+r.id+'">+ Add</button>'+
+      '</div>';
+      html += '<div class="paste-box"><label class="muted" style="display:block;margin-bottom:6px;">Paste from MealBoard (one ingredient per line)</label>'+
+        '<textarea id="paste-'+r.id+'" placeholder="2 cups flour\n1 onion, diced\n500g beef mince"></textarea>'+
+        '<button class="btn small" style="margin-top:6px;" data-action="parse-paste" data-recipe="'+r.id+'">Parse & add</button></div>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// ----- Staples -----
+function renderStaplesPanel(){
+  let html = '<div class="card">'+
+    '<label class="muted" style="display:block;margin-bottom:8px;">Master staples list \u2014 checked each week in This Week</label>';
+  if(!state.staples.length){
+    html += '<div class="empty-state">No staples yet \u2014 add your first one below.</div>';
+  } else {
+    state.staples.forEach(s=>{
+      const def = state.defaults[defaultsKey(s.name)] || {};
+      const defAisle = def.aisle || guessAisle(s.name);
+      html += '<div class="staple-row">'+
+        '<span class="staple-name">'+esc(s.name)+'</span>'+
+        '<div class="def-selects">'+
+          '<select data-action="set-default-store" data-name="'+esc(s.name)+'"><option value="aldi"'+(def.store!=='woolworths'?' selected':'')+'>Aldi</option><option value="woolworths"'+(def.store==='woolworths'?' selected':'')+'>Woolworths</option></select>'+
+          '<select data-action="set-default-aisle" data-name="'+esc(s.name)+'">'+AISLES.map(a=>'<option value="'+a+'"'+(defAisle===a?' selected':'')+'>'+a+'</option>').join('')+'</select>'+
+        '</div>'+
+        '<button class="ing-controls" style="background:none;border:none;color:var(--ink-soft);cursor:pointer;" data-action="remove-staple" data-id="'+s.id+'" title="Remove">\u2715</button>'+
+      '</div>';
+    });
+  }
+  html += '<div class="add-ing-form">'+
+    '<input type="text" id="new-staple-name" placeholder="staple name" style="flex:2 1 140px;">'+
+    '<button class="btn ghost small" data-action="add-staple">+ Add staple</button>'+
+  '</div>'+
+  '<div class="paste-box"><label class="muted" style="display:block;margin-bottom:6px;">Or paste a whole list at once, one item per line</label>'+
+    '<textarea id="paste-staples" placeholder="Dog food\nBatteries\nDishwasher tablets"></textarea>'+
+    '<button class="btn small" style="margin-top:6px;" data-action="paste-staples">Parse & add</button></div>'+
+  '</div>';
+
+  const have = new Set(state.staples.map(s=>normalizeName(s.name)));
+  const suggestions = SUGGESTED_STAPLES.filter(name=>!have.has(normalizeName(name)));
+  if(suggestions.length){
+    html += '<div class="card"><label class="muted" style="display:block;margin-bottom:8px;">Add common staples \u2014 tick any you want, then add them in one go</label>'+
+      '<div class="checklist">'+suggestions.map(name=>
+        '<label><input type="checkbox" data-suggest-staple="'+esc(name)+'"> '+esc(name)+'</label>'
+      ).join('')+'</div>'+
+      '<button class="btn ghost small" style="margin-top:10px;" data-action="add-suggested-staples">+ Add selected</button>'+
+    '</div>';
+  }
+  return html;
+}
+
+// ---------- events ----------
+document.addEventListener('input', e=>{
+  const t = e.target;
+  if(t.matches('textarea[data-field]')){
+    state.weekForm[t.dataset.field] = t.value;
+    saveWeekDraftDebounced();
+  }
+});
+
+document.addEventListener('change', e=>{
+  const t = e.target;
+  const action = t.dataset.action;
+  if(action==='staple-check'){
+    state.weekForm.staplesSelected[t.dataset.id] = t.checked;
+    saveWeekDraftDebounced();
+  } else if(action==='toggle-ingredient-staple'){
+    const ing = state.recipes[t.dataset.recipe].ingredients.find(i=>i.id===t.dataset.ing);
+    if(ing){ ing.isStaple = t.checked; saveRecipe(t.dataset.recipe); render(); }
+  } else if(action==='wizard-recipe-staple'){
+    state.weekForm.recipeStaplesChecked[t.dataset.key] = t.checked;
+    saveWeekDraftDebounced();
+  } else if(action==='toggle-check'){
+    if(!state.week.shoppingChecked) state.week.shoppingChecked = {};
+    state.week.shoppingChecked[t.dataset.key] = t.checked;
+    saveWeek(); render();
+  } else if(action==='change-aisle'){
+    updateDefault(t.dataset.name, null, t.value);
+    state.editingItemAisle = null;
+    render();
+  } else if(action==='set-default-store'){
+    updateDefault(t.dataset.name, t.value, null);
+  } else if(action==='set-default-aisle'){
+    updateDefault(t.dataset.name, null, t.value);
+  }
+});
+
+document.addEventListener('click', e=>{
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const a = el.dataset.action;
+
+  if(a==='tab'){ state.tab = el.dataset.id; render(); }
+  else if(a==='store-tab'){ state.storeTab = el.dataset.id; render(); }
+  else if(a==='wizard-next'){ state.weekForm.step = Math.min(4, (state.weekForm.step||1)+1); saveWeekDraftNow(); render(); }
+  else if(a==='wizard-back'){ state.weekForm.step = Math.max(1, (state.weekForm.step||1)-1); saveWeekDraftNow(); render(); }
+
+  else if(a==='build-week'){
+    const wf = state.weekForm;
+    state.week = {
+      picksRaw: wf.picksRaw, alexaRaw: wf.alexaRaw, staplesSelected: {...wf.staplesSelected},
+      recipeStaplesChecked: {...wf.recipeStaplesChecked},
+      manualItems: (state.week&&state.week.manualItems)||[],
+      shoppingChecked: {}, builtAt: Date.now()
+    };
+    saveWeek(); deleteWeekDraft(); render();
+  }
+  else if(a==='edit-week'){
+    state.weekForm = {
+      picksRaw: state.week.picksRaw||'', alexaRaw: state.week.alexaRaw||'',
+      staplesSelected: {...(state.week.staplesSelected||{})},
+      recipeStaplesChecked: {...(state.week.recipeStaplesChecked||{})},
+      step: 1
+    };
+    state.week.builtAt = null; saveWeek(); saveWeekDraftNow(); render();
+  }
+  else if(a==='new-week'){
+    if(confirm('Start a new week? This clears this week\u2019s picks, Alexa list, and checked-off items.')){
+      state.week = null; state.weekForm = {picksRaw:'', alexaRaw:'', staplesSelected:{}, recipeStaplesChecked:{}, step:1};
+      deleteWeek(); deleteWeekDraft(); render();
+    }
+  }
+  else if(a==='move-store'){
+    updateDefault(el.dataset.name, el.dataset.store, el.dataset.aisle);
+    render();
+  }
+  else if(a==='edit-item-aisle'){
+    state.editingItemAisle = el.dataset.key; render();
+  }
+  else if(a==='add-manual'){
+    const name = document.getElementById('manual-name').value.trim();
+    if(!name) return;
+    const qty = document.getElementById('manual-qty').value.trim();
+    const unit = document.getElementById('manual-unit').value.trim();
+    if(!state.week.manualItems) state.week.manualItems = [];
+    state.week.manualItems.push({name, qty, unit});
+    saveWeek(); render();
+  }
+
+  else if(a==='toggle-recipe'){
+    state.expandedRecipe = state.expandedRecipe===el.dataset.id ? null : el.dataset.id;
+    state.editingIngredient = null; render();
+  }
+  else if(a==='reconcile-open'){ state.recipesView = 'reconcile'; render(); }
+  else if(a==='reconcile-close'){ state.recipesView = 'list'; render(); }
+  else if(a==='reconcile-rename'){
+    const input = document.getElementById(el.dataset.input);
+    const newName = input.value.trim();
+    if(!newName) return;
+    const oldKey = el.dataset.key;
+    Object.keys(state.recipes).forEach(rid=>{
+      let changed = false;
+      state.recipes[rid].ingredients.forEach(ing=>{
+        if(defaultsKey(ing.name)===oldKey && ing.name!==newName){ ing.name = newName; changed = true; }
+      });
+      if(changed) saveRecipe(rid);
+    });
+    render();
+  }
+  else if(a==='add-ingredient'){
+    const rid = el.dataset.recipe;
+    const name = document.getElementById('new-ing-name').value.trim();
+    if(!name) return;
+    const qty = document.getElementById('new-ing-qty').value.trim();
+    const unit = document.getElementById('new-ing-unit').value.trim();
+    const isStaple = document.getElementById('new-ing-staple').checked;
+    state.recipes[rid].ingredients.push({id:uid(), name, qty, unit, isStaple});
+    saveRecipe(rid); render();
+  }
+  else if(a==='parse-paste'){
+    const rid = el.dataset.recipe;
+    const ta = document.getElementById('paste-'+rid);
+    const lines = ta.value.split('\n').map(parseIngredientLine).filter(x=>x&&x.name);
+    lines.forEach(l=> state.recipes[rid].ingredients.push({id:uid(), name:l.name, qty:l.qty, unit:l.unit}));
+    saveRecipe(rid); render();
+  }
+  else if(a==='edit-ingredient'){
+    state.editingIngredient = {recipeId:el.dataset.recipe, ingId:el.dataset.ing}; render();
+  }
+  else if(a==='cancel-edit-ingredient'){ state.editingIngredient = null; render(); }
+  else if(a==='save-ingredient'){
+    const rid = el.dataset.recipe, iid = el.dataset.ing;
+    const r = state.recipes[rid];
+    const ing = r.ingredients.find(i=>i.id===iid);
+    ing.qty = document.getElementById('edit-qty').value.trim();
+    ing.unit = document.getElementById('edit-unit').value.trim();
+    ing.name = document.getElementById('edit-name').value.trim();
+    ing.isStaple = document.getElementById('edit-staple').checked;
+    state.editingIngredient = null;
+    saveRecipe(rid); render();
+  }
+  else if(a==='remove-ingredient'){
+    const rid = el.dataset.recipe, iid = el.dataset.ing;
+    state.recipes[rid].ingredients = state.recipes[rid].ingredients.filter(i=>i.id!==iid);
+    saveRecipe(rid); render();
+  }
+
+  else if(a==='add-staple'){
+    const inp = document.getElementById('new-staple-name');
+    const name = inp.value.trim();
+    if(!name) return;
+    state.staples.push({id:uid(), name});
+    saveStaples(); render();
+  }
+  else if(a==='paste-staples'){
+    const ta = document.getElementById('paste-staples');
+    const have = new Set(state.staples.map(s=>normalizeName(s.name)));
+    const lines = ta.value.split('\n').map(l=>l.replace(/^[-*\u2022\d.\)]+\s*/,'').trim()).filter(Boolean);
+    let added = 0;
+    lines.forEach(name=>{
+      const key = normalizeName(name);
+      if(key && !have.has(key)){ state.staples.push({id:uid(), name}); have.add(key); added++; }
+    });
+    if(added) saveStaples();
+    render();
+  }
+  else if(a==='add-suggested-staples'){
+    const checked = [...document.querySelectorAll('[data-suggest-staple]:checked')].map(cb=>cb.getAttribute('data-suggest-staple'));
+    if(!checked.length) return;
+    checked.forEach(name=> state.staples.push({id:uid(), name}));
+    saveStaples(); render();
+  }
+  else if(a==='remove-staple'){
+    state.staples = state.staples.filter(s=>s.id!==el.dataset.id);
+    saveStaples(); render();
+  }
+});
+
+if(firebaseAvailable){
+  auth.onAuthStateChanged(user=>{
+    if(user){ init(); }
+    else { renderSignIn(); }
+  });
+} else {
+  db = makeLocalDb();
+  init();
+}
+// Some mobile browsers auto-focus the first text field on load, popping the keyboard open
+// before the user's touched anything. Explicitly un-focus shortly after the first render settles.
+setTimeout(()=>{
+  if(document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+}, 150);
+</script>
+</body>
+</html>
