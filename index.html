@@ -158,7 +158,9 @@ input[type=text]:focus,textarea:focus,select:focus{outline:2px solid var(--ink);
   letter-spacing:0.04em;color:var(--ink-soft);margin:16px 0 6px;
 }
 .aisle-title:first-child{margin-top:0;}
-.item-row{display:flex;align-items:flex-start;flex-wrap:wrap;gap:4px 8px;padding:7px 0;border-bottom:1px dashed var(--line);}
+.item-row-wrap{position:relative;overflow:hidden;}
+.item-row-delete-bg{position:absolute;inset:0;background:var(--danger);color:#fff;display:flex;align-items:center;padding-left:16px;font-size:13px;font-weight:600;}
+.item-row{display:flex;align-items:flex-start;flex-wrap:wrap;gap:4px 8px;padding:7px 0;border-bottom:1px dashed var(--line);position:relative;background:var(--paper-raised);touch-action:pan-y;}
 .item-row:last-child{border-bottom:none;}
 .item-row input[type=checkbox]{width:17px;height:17px;flex:none;margin-top:2px;}
 .item-row .item-name{flex:1 1 140px;font-size:14px;min-width:0;white-space:normal;word-break:break-word;line-height:1.35;padding-top:1px;}
@@ -484,9 +486,11 @@ function computeWeekLists(){
     }
   });
 
+  const removedItems = week.removedItems || {};
   const lists = {aldi:{}, woolworths:{}};
   AISLES.forEach(a=>{ lists.aldi[a]=[]; lists.woolworths[a]=[]; });
   combined.forEach(b=>{
+    if(removedItems[b.key]) return;
     const parts = [];
     if(b.qtyNums.length){ const sum = b.qtyNums.reduce((a,c)=>a+c,0); parts.push(sum + (b.unit?(' '+b.unit):'')); }
     if(b.qtyTexts.length) parts.push(b.qtyTexts.join(' + ') + (b.unit && !b.qtyNums.length ? (' '+b.unit) : ''));
@@ -621,18 +625,21 @@ function renderWeekPanel(){
       items.forEach(it=>{
         const otherStore = store==='aldi' ? 'woolworths' : 'aldi';
         const editingThis = state.editingItemAisle === it.key;
-        html += '<div class="item-row'+(it.checked?' checked':'')+'">'+
-          '<input type="checkbox" data-action="toggle-check" data-key="'+esc(it.key)+'" '+(it.checked?'checked':'')+'>'+
-          '<span class="item-name">'+esc(it.name)+'</span>'+
-          (it.qty?'<span class="item-qty">'+esc(it.qty)+'</span>':'')+
-          (editingThis ?
-            '<select data-action="change-aisle" data-name="'+esc(it.name)+'" data-store="'+store+'">'+
-              AISLES.map(a=>'<option value="'+a+'"'+(a===aisle?' selected':'')+'>'+a+'</option>').join('')+
-            '</select>'
-          :
-            '<button class="aisle-edit-btn" data-action="edit-item-aisle" data-key="'+esc(it.key)+'" title="Change aisle">\u270e</button>'
-          )+
-          '<button class="move-btn" data-action="move-store" data-name="'+esc(it.name)+'" data-store="'+otherStore+'" data-aisle="'+aisle+'">\u2192 '+(otherStore==='aldi'?'Aldi':'Woolworths')+'</button>'+
+        html += '<div class="item-row-wrap">'+
+          '<div class="item-row-delete-bg">Remove</div>'+
+          '<div class="item-row'+(it.checked?' checked':'')+'" data-key="'+esc(it.key)+'">'+
+            '<input type="checkbox" data-action="toggle-check" data-key="'+esc(it.key)+'" '+(it.checked?'checked':'')+'>'+
+            '<span class="item-name">'+esc(it.name)+'</span>'+
+            (it.qty?'<span class="item-qty">'+esc(it.qty)+'</span>':'')+
+            (editingThis ?
+              '<select data-action="change-aisle" data-name="'+esc(it.name)+'" data-store="'+store+'">'+
+                AISLES.map(a=>'<option value="'+a+'"'+(a===aisle?' selected':'')+'>'+a+'</option>').join('')+
+              '</select>'
+            :
+              '<button class="aisle-edit-btn" data-action="edit-item-aisle" data-key="'+esc(it.key)+'" title="Change aisle">\u270e</button>'
+            )+
+            '<button class="move-btn" data-action="move-store" data-name="'+esc(it.name)+'" data-store="'+otherStore+'" data-aisle="'+aisle+'">\u2192 '+(otherStore==='aldi'?'Aldi':'Woolworths')+'</button>'+
+          '</div>'+
         '</div>';
       });
     });
@@ -854,6 +861,7 @@ document.addEventListener('click', e=>{
       picksRaw: wf.picksRaw, alexaRaw: wf.alexaRaw, staplesSelected: {...wf.staplesSelected},
       recipeStaplesChecked: {...wf.recipeStaplesChecked},
       manualItems: (state.week&&state.week.manualItems)||[],
+      removedItems: (state.week&&state.week.removedItems)||{},
       shoppingChecked: {}, builtAt: Date.now()
     };
     saveWeek(); deleteWeekDraft(); render();
@@ -978,6 +986,59 @@ document.addEventListener('click', e=>{
     saveStaples(); render();
   }
 });
+
+// ---------- swipe-to-remove (This Week's built list only) ----------
+// Swipe right on an item removes it from THIS week's collated list only \u2014 the recipe/ingredient
+// itself is untouched, so it reappears normally if that recipe comes up again another week.
+let swipeState = null;
+const SWIPE_THRESHOLD = 64;
+
+document.addEventListener('pointerdown', e=>{
+  const row = e.target.closest('.item-row[data-key]');
+  if(!row) return;
+  if(e.target.closest('input,select,button')) return; // let checkbox/pencil/move-link work normally
+  swipeState = { row, key: row.dataset.key, startX: e.clientX, startY: e.clientY, dx:0, dragging:false, pointerId:e.pointerId };
+});
+
+document.addEventListener('pointermove', e=>{
+  if(!swipeState || e.pointerId !== swipeState.pointerId) return;
+  const dx = e.clientX - swipeState.startX;
+  const dy = e.clientY - swipeState.startY;
+  if(!swipeState.dragging){
+    if(Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)){
+      swipeState.dragging = true;
+      try{ swipeState.row.setPointerCapture(swipeState.pointerId); }catch(e){}
+    } else if(Math.abs(dy) > 10){
+      swipeState = null; return; // vertical scroll \u2014 not a swipe, let the page scroll
+    } else { return; }
+  }
+  swipeState.dx = Math.max(0, Math.min(dx, 100)); // right-swipe only, clamped
+  swipeState.row.style.transform = 'translateX('+swipeState.dx+'px)';
+});
+
+function endSwipe(e){
+  if(!swipeState || (e && e.pointerId !== swipeState.pointerId)) return;
+  const { row, key, dx, dragging } = swipeState;
+  if(dragging){
+    if(dx > SWIPE_THRESHOLD){
+      row.style.transition = 'transform 0.18s ease, opacity 0.18s ease';
+      row.style.transform = 'translateX(100%)';
+      row.style.opacity = '0';
+      setTimeout(()=>{
+        if(!state.week.removedItems) state.week.removedItems = {};
+        state.week.removedItems[key] = true;
+        saveWeek(); render();
+      }, 170);
+    } else {
+      row.style.transition = 'transform 0.15s ease';
+      row.style.transform = 'translateX(0)';
+      setTimeout(()=>{ row.style.transition=''; }, 160);
+    }
+  }
+  swipeState = null;
+}
+document.addEventListener('pointerup', endSwipe);
+document.addEventListener('pointercancel', endSwipe);
 
 if(firebaseAvailable){
   auth.onAuthStateChanged(user=>{
