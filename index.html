@@ -155,10 +155,10 @@ input[type=text]:focus,textarea:focus,select:focus{outline:2px solid var(--ink);
   letter-spacing:0.04em;color:var(--ink-soft);margin:16px 0 6px;
 }
 .aisle-title:first-child{margin-top:0;}
-.item-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);}
+.item-row{display:flex;align-items:flex-start;flex-wrap:wrap;gap:4px 8px;padding:7px 0;border-bottom:1px dashed var(--line);}
 .item-row:last-child{border-bottom:none;}
-.item-row input[type=checkbox]{width:17px;height:17px;flex:none;}
-.item-row .item-name{flex:1 1 auto;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.item-row input[type=checkbox]{width:17px;height:17px;flex:none;margin-top:2px;}
+.item-row .item-name{flex:1 1 140px;font-size:14px;min-width:0;white-space:normal;word-break:break-word;line-height:1.35;padding-top:1px;}
 .item-row.checked .item-name{text-decoration:line-through;color:var(--ink-soft);}
 .item-row .item-qty{color:var(--ink-soft);font-size:12px;flex:none;}
 .item-row select{width:auto;font-size:11px;padding:4px 6px;flex:none;}
