@@ -73,6 +73,7 @@ body{
   font-size:14.5px;
   line-height:1.55;
   -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
 }
 .wrap{max-width:760px;margin:0 auto;padding:20px 16px 80px;}
 .topbar h1{
@@ -169,12 +170,11 @@ input[type=text]:focus,textarea:focus,select:focus{outline:2px solid var(--ink);
 .item-row select{width:auto;font-size:11px;padding:4px 6px;flex:none;}
 .item-row .aisle-edit-btn{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:2px 4px;flex:none;}
 .item-row .move-btn{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:11px;text-decoration:underline;flex:none;white-space:nowrap;}
-.item-row .remove-item-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:2px 4px;flex:none;}
 .unsorted-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px dashed var(--line);}
 .unsorted-row .item-name{flex:1 1 140px;font-size:13.5px;}
 .empty-state{color:var(--ink-soft);font-size:13px;padding:10px 0;}
 .week-meta-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
-.staple-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);}
+.staple-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:6px 0;border-bottom:1px dashed var(--line);}
 .staple-row:last-child{border-bottom:none;}
 .staple-name{flex:1 1 auto;font-size:13.5px;}
 .progress-note{font-size:12px;color:var(--ink-soft);margin-bottom:12px;}
@@ -326,7 +326,7 @@ let db = null;
 let state = {
   loaded:false, error:null,
   recipes:{}, staples:[], defaults:{}, week:null,
-  tab:'week', storeTab:'aldi', recipesView:'list', editingItemAisle:null,
+  tab:'week', storeTab:'aldi', recipesView:'list', editingItem:null,
   weekForm:{picksRaw:'', alexaRaw:'', staplesSelected:{}, recipeStaplesChecked:{}, step:1},
   expandedRecipe:null, editingIngredient:null
 };
@@ -488,14 +488,20 @@ function computeWeekLists(){
   });
 
   const removedItems = week.removedItems || {};
+  const qtyOverrides = week.qtyOverrides || {};
   const lists = {aldi:{}, woolworths:{}};
   AISLES.forEach(a=>{ lists.aldi[a]=[]; lists.woolworths[a]=[]; });
   combined.forEach(b=>{
     if(removedItems[b.key]) return;
-    const parts = [];
-    if(b.qtyNums.length){ const sum = b.qtyNums.reduce((a,c)=>a+c,0); parts.push(sum + (b.unit?(' '+b.unit):'')); }
-    if(b.qtyTexts.length) parts.push(b.qtyTexts.join(' + ') + (b.unit && !b.qtyNums.length ? (' '+b.unit) : ''));
-    const qtyDisplay = parts.join(' + ');
+    let qtyDisplay;
+    if(qtyOverrides[b.key] !== undefined){
+      qtyDisplay = qtyOverrides[b.key];
+    } else {
+      const parts = [];
+      if(b.qtyNums.length){ const sum = b.qtyNums.reduce((a,c)=>a+c,0); parts.push(sum + (b.unit?(' '+b.unit):'')); }
+      if(b.qtyTexts.length) parts.push(b.qtyTexts.join(' + ') + (b.unit && !b.qtyNums.length ? (' '+b.unit) : ''));
+      qtyDisplay = parts.join(' + ');
+    }
     const store = lists[b.store] ? b.store : 'aldi';
     const aisle = AISLES.includes(b.aisle) ? b.aisle : 'Other';
     lists[store][aisle].push({key:b.key, name:b.name, qty:qtyDisplay, checked: !!(week.shoppingChecked && week.shoppingChecked[b.key])});
@@ -625,22 +631,22 @@ function renderWeekPanel(){
       html += '<div class="aisle-title">'+aisle+'</div>';
       items.forEach(it=>{
         const otherStore = store==='aldi' ? 'woolworths' : 'aldi';
-        const editingThis = state.editingItemAisle === it.key;
+        const editingThis = state.editingItem === it.key;
         html += '<div class="item-row-wrap">'+
           '<div class="item-row-delete-bg">Remove</div>'+
           '<div class="item-row'+(it.checked?' checked':'')+'" data-key="'+esc(it.key)+'">'+
             '<input type="checkbox" data-action="toggle-check" data-key="'+esc(it.key)+'" '+(it.checked?'checked':'')+'>'+
             '<span class="item-name">'+esc(it.name)+'</span>'+
-            (it.qty?'<span class="item-qty">'+esc(it.qty)+'</span>':'')+
             (editingThis ?
-              '<select data-action="change-aisle" data-name="'+esc(it.name)+'" data-store="'+store+'">'+
-                AISLES.map(a=>'<option value="'+a+'"'+(a===aisle?' selected':'')+'>'+a+'</option>').join('')+
-              '</select>'
+              '<input type="text" id="item-edit-qty" value="'+esc(it.qty)+'" placeholder="qty" style="width:80px;flex:none;">'+
+              '<select id="item-edit-aisle-select">'+AISLES.map(a=>'<option value="'+a+'"'+(a===aisle?' selected':'')+'>'+a+'</option>').join('')+'</select>'+
+              '<button class="btn small" data-action="save-item-edit" data-key="'+esc(it.key)+'" data-name="'+esc(it.name)+'">Save</button>'+
+              '<button class="btn ghost small" data-action="cancel-item-edit">Cancel</button>'
             :
-              '<button class="aisle-edit-btn" data-action="edit-item-aisle" data-key="'+esc(it.key)+'" title="Change aisle">\u270e</button>'
+              (it.qty?'<span class="item-qty">'+esc(it.qty)+'</span>':'')+
+              '<button class="aisle-edit-btn" data-action="edit-item" data-key="'+esc(it.key)+'" title="Edit">\u270e</button>'+
+              '<button class="move-btn" data-action="move-store" data-name="'+esc(it.name)+'" data-store="'+otherStore+'" data-aisle="'+aisle+'">\u2192 '+(otherStore==='aldi'?'Aldi':'Woolworths')+'</button>'
             )+
-            '<button class="move-btn" data-action="move-store" data-name="'+esc(it.name)+'" data-store="'+otherStore+'" data-aisle="'+aisle+'">\u2192 '+(otherStore==='aldi'?'Aldi':'Woolworths')+'</button>'+
-            '<button class="remove-item-btn" data-action="remove-item" data-key="'+esc(it.key)+'" title="Remove from this week\u2019s list">\u2715</button>'+
           '</div>'+
         '</div>';
       });
@@ -836,10 +842,6 @@ document.addEventListener('change', e=>{
     if(!state.week.shoppingChecked) state.week.shoppingChecked = {};
     state.week.shoppingChecked[t.dataset.key] = t.checked;
     saveWeek(); render();
-  } else if(action==='change-aisle'){
-    updateDefault(t.dataset.name, null, t.value);
-    state.editingItemAisle = null;
-    render();
   } else if(action==='set-default-store'){
     updateDefault(t.dataset.name, t.value, null);
   } else if(action==='set-default-aisle'){
@@ -864,6 +866,7 @@ document.addEventListener('click', e=>{
       recipeStaplesChecked: {...wf.recipeStaplesChecked},
       manualItems: (state.week&&state.week.manualItems)||[],
       removedItems: (state.week&&state.week.removedItems)||{},
+      qtyOverrides: (state.week&&state.week.qtyOverrides)||{},
       shoppingChecked: {}, builtAt: Date.now()
     };
     saveWeek(); deleteWeekDraft(); render();
@@ -892,8 +895,21 @@ document.addEventListener('click', e=>{
     state.week.removedItems[el.dataset.key] = true;
     saveWeek(); render();
   }
-  else if(a==='edit-item-aisle'){
-    state.editingItemAisle = el.dataset.key; render();
+  else if(a==='edit-item'){
+    state.editingItem = el.dataset.key; render();
+  }
+  else if(a==='cancel-item-edit'){
+    state.editingItem = null; render();
+  }
+  else if(a==='save-item-edit'){
+    const key = el.dataset.key, name = el.dataset.name;
+    const newQty = document.getElementById('item-edit-qty').value.trim();
+    const newAisle = document.getElementById('item-edit-aisle-select').value;
+    if(!state.week.qtyOverrides) state.week.qtyOverrides = {};
+    state.week.qtyOverrides[key] = newQty;
+    updateDefault(name, null, newAisle);
+    state.editingItem = null;
+    saveWeek(); render();
   }
   else if(a==='add-manual'){
     const name = document.getElementById('manual-name').value.trim();
