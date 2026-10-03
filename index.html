@@ -161,7 +161,8 @@ input[type=text]:focus,textarea:focus,select:focus{outline:2px solid var(--ink);
 .aisle-title:first-child{margin-top:0;}
 .item-row-wrap{position:relative;overflow:hidden;}
 .item-row-delete-bg{position:absolute;inset:0;background:var(--danger);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;}
-.item-row{display:flex;align-items:flex-start;flex-wrap:wrap;gap:4px 8px;padding:7px 0;border-bottom:1px dashed var(--line);position:relative;background:var(--paper-raised);touch-action:pan-y;-webkit-user-select:none;user-select:none;}
+.item-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);position:relative;background:var(--paper-raised);touch-action:pan-y;-webkit-user-select:none;user-select:none;}
+.item-row-content{display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px 8px;flex:1 1 auto;min-width:0;}
 .item-row:last-child{border-bottom:none;}
 .item-row input[type=checkbox]{width:17px;height:17px;flex:none;margin-top:2px;}
 .item-row .item-name{flex:1 1 140px;font-size:14px;min-width:0;white-space:normal;word-break:break-word;line-height:1.35;padding-top:1px;}
@@ -636,17 +637,19 @@ function renderWeekPanel(){
           '<div class="item-row-delete-bg">Remove</div>'+
           '<div class="item-row'+(it.checked?' checked':'')+'" data-key="'+esc(it.key)+'">'+
             '<input type="checkbox" data-action="toggle-check" data-key="'+esc(it.key)+'" '+(it.checked?'checked':'')+'>'+
-            '<span class="item-name">'+esc(it.name)+'</span>'+
-            (editingThis ?
-              '<input type="text" id="item-edit-qty" value="'+esc(it.qty)+'" placeholder="qty" style="width:80px;flex:none;">'+
-              '<select id="item-edit-aisle-select">'+AISLES.map(a=>'<option value="'+a+'"'+(a===aisle?' selected':'')+'>'+a+'</option>').join('')+'</select>'+
-              '<button class="btn small" data-action="save-item-edit" data-key="'+esc(it.key)+'" data-name="'+esc(it.name)+'">Save</button>'+
-              '<button class="btn ghost small" data-action="cancel-item-edit">Cancel</button>'
-            :
-              (it.qty?'<span class="item-qty">'+esc(it.qty)+'</span>':'')+
-              '<button class="aisle-edit-btn" data-action="edit-item" data-key="'+esc(it.key)+'" title="Edit">\u270e</button>'+
-              '<button class="move-btn" data-action="move-store" data-name="'+esc(it.name)+'" data-store="'+otherStore+'" data-aisle="'+aisle+'">\u2192 '+(otherStore==='aldi'?'Aldi':'Woolworths')+'</button>'
-            )+
+            '<div class="item-row-content">'+
+              '<span class="item-name">'+esc(it.name)+'</span>'+
+              (editingThis ?
+                '<input type="text" id="item-edit-qty" value="'+esc(it.qty)+'" placeholder="qty" style="width:80px;flex:none;">'+
+                '<select id="item-edit-aisle-select">'+AISLES.map(a=>'<option value="'+a+'"'+(a===aisle?' selected':'')+'>'+a+'</option>').join('')+'</select>'+
+                '<button class="btn small" data-action="save-item-edit" data-key="'+esc(it.key)+'" data-name="'+esc(it.name)+'">Save</button>'+
+                '<button class="btn ghost small" data-action="cancel-item-edit">Cancel</button>'
+              :
+                (it.qty?'<span class="item-qty">'+esc(it.qty)+'</span>':'')+
+                '<button class="aisle-edit-btn" data-action="edit-item" data-key="'+esc(it.key)+'" title="Edit">\u270e</button>'+
+                '<button class="move-btn" data-action="move-store" data-name="'+esc(it.name)+'" data-store="'+otherStore+'" data-aisle="'+aisle+'">\u2192 '+(otherStore==='aldi'?'Aldi':'Woolworths')+'</button>'
+              )+
+            '</div>'+
           '</div>'+
         '</div>';
       });
