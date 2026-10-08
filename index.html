@@ -256,7 +256,17 @@ function makeFirestoreDb(){
       async get(){ const snap = await ref.get(); return { id: snap.id, exists: snap.exists, data: () => snap.data() }; },
       async set(data){ await ref.set(data); },
       async update(data){ await ref.update(data); },
+      // Change ONE nested field (e.g. shoppingChecked -> key) without rewriting the whole document,
+      // so two phones ticking different items at the same moment don't overwrite each other.
+      async updateField(fieldPath, value){ await ref.update(new firebase.firestore.FieldPath(...fieldPath), value); },
       async delete(){ await ref.delete(); },
+      // Live updates. Skips the echo of our own not-yet-confirmed writes; fires for changes from other devices.
+      onSnapshot(cb){
+        return ref.onSnapshot({includeMetadataChanges:true}, snap=>{
+          if(snap.metadata.hasPendingWrites) return;
+          cb({ id: snap.id, exists: snap.exists, data: () => snap.data() });
+        }, err=>{ console.warn('live sync (doc) stopped', path, err && err.code); });
+      },
       collection(sub){ return mkCollection(path+'/'+sub); }
     };
   }
@@ -267,6 +277,12 @@ function makeFirestoreDb(){
       async get(){
         const snap = await ref.get();
         return { docs: snap.docs.map(d=>({ id:d.id, exists:true, data:()=>d.data() })) };
+      },
+      onSnapshot(cb){
+        return ref.onSnapshot({includeMetadataChanges:true}, snap=>{
+          if(snap.metadata.hasPendingWrites) return;
+          cb({ docs: snap.docs.map(d=>({ id:d.id, exists:true, data:()=>d.data() })) });
+        }, err=>{ console.warn('live sync (collection) stopped', path, err && err.code); });
       }
     };
   }
@@ -281,6 +297,11 @@ function makeLocalDb(){
       async get(){ const data = store[path]; return { id: path.split('/').pop(), exists: data !== undefined, data: () => data }; },
       async set(data){ store[path] = data; },
       async update(data){ store[path] = {...(store[path]||{}), ...data}; },
+      async updateField(fieldPath, value){
+        let o = (store[path] = store[path] || {});
+        for(let i=0;i<fieldPath.length-1;i++){ o = (o[fieldPath[i]] = o[fieldPath[i]] || {}); }
+        o[fieldPath[fieldPath.length-1]] = value;
+      },
       async delete(){ delete store[path]; },
       collection(sub){ return mkCollection(path+'/'+sub); }
     };
@@ -332,6 +353,77 @@ let state = {
   expandedRecipe:null, editingIngredient:null
 };
 
+// ---------- live updates (changes made on another phone appear here without a reload) ----------
+let liveStarted = false;
+let liveUnsubs = [];
+let remoteRenderPending = false;
+let remoteRenderTimer = null;
+
+// Key-order-insensitive comparison, so Firestore returning fields in a different order doesn't look like a change.
+function stableStringify(v){
+  if(v===null || typeof v!=='object') return JSON.stringify(v);
+  if(Array.isArray(v)) return '['+v.map(stableStringify).join(',')+']';
+  return '{'+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+stableStringify(v[k])).join(',')+'}';
+}
+
+// Don't redraw the page under someone who's typing in a box or mid-swipe \u2014 wait until they're done.
+function isBusy(){
+  const ae = document.activeElement;
+  const typing = ae && ((ae.tagName==='INPUT' && ae.type!=='checkbox' && ae.type!=='button') || ae.tagName==='TEXTAREA' || ae.tagName==='SELECT');
+  return !!typing || !!(swipeState && swipeState.dragging);
+}
+
+function remoteRender(){
+  clearTimeout(remoteRenderTimer);
+  if(isBusy()){
+    remoteRenderPending = true;
+    remoteRenderTimer = setTimeout(()=>{ if(remoteRenderPending) remoteRender(); }, 700);
+    return;
+  }
+  render();
+}
+
+function startLiveSync(){
+  if(!firebaseAvailable || liveStarted || !db) return;
+  try{
+    liveStarted = true;
+    const watch = unsub => { if(typeof unsub==='function') liveUnsubs.push(unsub); };
+
+    watch(db.collection('recipes').onSnapshot(snap=>{
+      const incoming = {};
+      snap.docs.forEach(d=>{ incoming[d.id] = clone(d.data()); });
+      if(stableStringify(incoming) === stableStringify(state.recipes)) return;
+      state.recipes = incoming; remoteRender();
+    }));
+
+    watch(db.doc('staples/master').onSnapshot(snap=>{
+      const incoming = snap.exists ? clone(snap.data().items||[]) : [];
+      if(stableStringify(incoming) === stableStringify(state.staples)) return;
+      state.staples = incoming; remoteRender();
+    }));
+
+    watch(db.doc('defaults/items').onSnapshot(snap=>{
+      const incoming = snap.exists ? clone(snap.data().map||{}) : {};
+      if(stableStringify(incoming) === stableStringify(state.defaults)) return;
+      state.defaults = incoming; remoteRender();
+    }));
+
+    watch(db.doc('week/current').onSnapshot(snap=>{
+      const incoming = snap.exists ? clone(snap.data()) : null;
+      if(stableStringify(incoming) === stableStringify(state.week)) return;
+      state.week = incoming; remoteRender();
+    }));
+  }catch(e){
+    // Live updating is a bonus \u2014 if it can't start, the app carries on exactly as before (refresh to see changes).
+    console.warn('live sync not started', e);
+  }
+}
+
+function stopLiveSync(){
+  liveUnsubs.forEach(u=>{ try{ u(); }catch(e){} });
+  liveUnsubs = []; liveStarted = false;
+}
+
 async function init(){
   if(firebaseAvailable) db = makeFirestoreDb();
   try{
@@ -368,6 +460,7 @@ async function init(){
       }
     }
     state.loaded = true;
+    startLiveSync();
   }catch(e){
     state.loaded = true;
     if(e && e.code === 'permission-denied'){ renderUnauthorized(auth.currentUser ? auth.currentUser.email : ''); return; }
@@ -380,6 +473,14 @@ function saveRecipe(id){ if(db) db.collection('recipes').doc(id).set(state.recip
 function saveStaples(){ if(db) db.doc('staples/master').set({items:state.staples}).catch(()=>{}); }
 function saveDefaults(){ if(db) db.doc('defaults/items').set({map:state.defaults}).catch(()=>{}); }
 function saveWeek(){ if(db) db.doc('week/current').set(state.week).catch(()=>{}); }
+// Save a single nested field of this week's list (a tick, a removal) so simultaneous changes from two
+// phones merge instead of one overwriting the other. Falls back to saving the whole list if that fails.
+function saveWeekField(path, value){
+  if(!db) return;
+  const ref = db.doc('week/current');
+  if(typeof ref.updateField !== 'function'){ saveWeek(); return; }
+  ref.updateField(path, value).catch(()=>saveWeek());
+}
 function deleteWeekDraft(){ if(db) db.doc('week/draft').delete().catch(()=>{}); }
 let draftSaveTimer = null;
 function saveWeekDraftDebounced(){
@@ -515,6 +616,7 @@ function computeWeekLists(){
 
 // ---------- rendering ----------
 function render(){
+  remoteRenderPending = false; // any redraw already reflects the latest data
   const app = document.getElementById('app');
   app.innerHTML =
     '<div class="topbar"><h1>\uD83E\uDDFA Grocery Run</h1>'+
@@ -844,7 +946,7 @@ document.addEventListener('change', e=>{
   } else if(action==='toggle-check'){
     if(!state.week.shoppingChecked) state.week.shoppingChecked = {};
     state.week.shoppingChecked[t.dataset.key] = t.checked;
-    saveWeek(); render();
+    saveWeekField(['shoppingChecked', t.dataset.key], t.checked); render();
   } else if(action==='set-default-store'){
     updateDefault(t.dataset.name, t.value, null);
   } else if(action==='set-default-aisle'){
@@ -1058,7 +1160,7 @@ function endSwipe(e){
       setTimeout(()=>{
         if(!state.week.removedItems) state.week.removedItems = {};
         state.week.removedItems[key] = true;
-        saveWeek(); render();
+        saveWeekField(['removedItems', key], true); render();
       }, 170);
     } else {
       row.style.transition = 'transform 0.15s ease';
@@ -1074,7 +1176,7 @@ document.addEventListener('pointercancel', endSwipe);
 if(firebaseAvailable){
   auth.onAuthStateChanged(user=>{
     if(user){ init(); }
-    else { renderSignIn(); }
+    else { stopLiveSync(); renderSignIn(); }
   });
 } else {
   db = makeLocalDb();
